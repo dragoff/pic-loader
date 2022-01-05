@@ -1,0 +1,14 @@
+{
+  "name": "com.dragoff.picloader",
+  "version": "1.0.0",
+  "displayName": "Pic Loader",
+  "author": "@dragoff (Evgeniy A) feat @shamsdev",
+  "unity": "2019.1",
+  "description": "PicLoader - A Run-Time image downloading and caching library \noriginal: https://github.com/shamsdev/davinci",
+  "files": [	
+	"Scripts",
+	"Scripts.meta",
+	"package.json.meta"
+  ]
+}
+	
