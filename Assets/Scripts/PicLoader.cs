@@ -1,4 +1,5 @@
 // based on https://github.com/shamsdev/davinci
+
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -14,7 +15,7 @@ using UnityEngine.UI;
 /// PicLoader - A Run-Time image downloading and caching library.
 /// Ex.
 /// PicLoader.Init()
-/// 	.Load(artUrl)
+/// 	.Set(artUrl)
 /// 	.SetCached(true)
 /// 	.Into(renderer)
 /// 	.SetFadeTime(0f)
@@ -60,7 +61,6 @@ public class PicLoader : MonoBehaviour
 	private string uniqueHash;
 	private int progress;
 
-
 	/// <summary>
 	/// Get instance of picLoader class
 	/// </summary>
@@ -74,7 +74,7 @@ public class PicLoader : MonoBehaviour
 	/// </summary>
 	/// <param name="url">Image Url</param>
 	/// <returns></returns>
-	public PicLoader Load(string url)
+	public PicLoader Set(string url)
 	{
 		if (enableLog)
 			Debug.Log("[PicLoader] Url set : " + url);
@@ -290,7 +290,7 @@ public class PicLoader : MonoBehaviour
 
 		try
 		{
-			Uri uri = new Uri(url);
+			var uri = new Uri(url);
 			this.url = uri.AbsoluteUri;
 		}
 		catch (Exception)
@@ -327,21 +327,19 @@ public class PicLoader : MonoBehaviour
 
 				LoadSpriteToImage();
 			};
+			return;
 		}
-		else
+
+		if (File.Exists(filePath + uniqueHash))
 		{
-			if (File.Exists(filePath + uniqueHash))
-			{
-				onDownloadedAction?.Invoke();
-				LoadSpriteToImage();
-			}
-			else
-			{
-				underProcess.Add(uniqueHash, this);
-				StopAllCoroutines();
-				StartCoroutine(nameof(Downloader));
-			}
+			onDownloadedAction?.Invoke();
+			LoadSpriteToImage();
+			return;
 		}
+
+		underProcess.Add(uniqueHash, this);
+		StopAllCoroutines();
+		StartCoroutine(nameof(Downloader));
 	}
 
 	private IEnumerator Downloader()
@@ -455,92 +453,15 @@ public class PicLoader : MonoBehaviour
 			switch (rendererType)
 			{
 				case RendererType.Renderer:
-					Renderer renderer = targetObj.GetComponent<Renderer>();
-
-					if (renderer == null || renderer.material == null)
-						break;
-
-					renderer.material.mainTexture = texture;
-					float maxAlpha;
-
-					if (fadeTime > 0 && renderer.material.HasProperty("_Color"))
-					{
-						color = renderer.material.color;
-						maxAlpha = color.a;
-
-						color.a = 0;
-
-						renderer.material.color = color;
-						float time = Time.time;
-						while (color.a < maxAlpha)
-						{
-							color.a = Mathf.Lerp(0, maxAlpha, (Time.time - time) / fadeTime);
-
-							if (renderer != null)
-								renderer.material.color = color;
-
-							yield return null;
-						}
-					}
-
+					yield return LoadRenderer();
 					break;
 
 				case RendererType.UiImage:
-					Image image = targetObj.GetComponent<Image>();
-
-					if (image == null)
-						break;
-
-					Sprite sprite = Sprite.Create(texture,
-						new Rect(0, 0, texture.width, texture.height), new Vector2(0.5f, 0.5f));
-
-					image.sprite = sprite;
-					color = image.color;
-					maxAlpha = color.a;
-
-					if (fadeTime > 0)
-					{
-						color.a = 0;
-						image.color = color;
-
-						float time = Time.time;
-						while (color.a < maxAlpha)
-						{
-							color.a = Mathf.Lerp(0, maxAlpha, (Time.time - time) / fadeTime);
-
-							if (image != null)
-								image.color = color;
-							yield return null;
-						}
-					}
-
+					yield return LoadUiImage();
 					break;
+
 				case RendererType.RawImage:
-					RawImage rawImage = targetObj.GetComponent<RawImage>();
-
-					if (rawImage == null)
-						break;
-
-					rawImage.texture = texture;
-					color = rawImage.color;
-					maxAlpha = color.a;
-
-					if (fadeTime > 0)
-					{
-						color.a = 0;
-						rawImage.color = color;
-
-						float time = Time.time;
-						while (color.a < maxAlpha)
-						{
-							color.a = Mathf.Lerp(0, maxAlpha, (Time.time - time) / fadeTime);
-
-							if (rawImage != null)
-								rawImage.color = color;
-							yield return null;
-						}
-					}
-
+					yield return LoadRawImage();
 					break;
 			}
 
@@ -550,6 +471,97 @@ public class PicLoader : MonoBehaviour
 			Debug.Log("[PicLoader] Image has been loaded.");
 
 		Finish();
+
+		// Loaders
+		IEnumerator LoadRenderer()
+		{
+			var renderer = targetObj.GetComponent<Renderer>();
+
+			if (renderer == null || renderer.material == null)
+				yield break;
+
+			renderer.material.mainTexture = texture;
+
+			if (fadeTime > 0 && renderer.material.HasProperty("_Color"))
+			{
+				var material = renderer.material;
+				var color = material.color;
+				var maxAlpha = color.a;
+
+				color.a = 0;
+
+				material.color = color;
+				float time = Time.time;
+				while (color.a < maxAlpha)
+				{
+					color.a = Mathf.Lerp(0, maxAlpha, (Time.time - time) / fadeTime);
+
+					if (renderer != null)
+						renderer.material.color = color;
+
+					yield return null;
+				}
+			}
+		}
+
+		IEnumerator LoadUiImage()
+		{
+			var image = targetObj.GetComponent<Image>();
+
+			if (image == null)
+				yield break;
+
+			Sprite sprite = Sprite.Create(texture,
+				new Rect(0, 0, texture.width, texture.height), new Vector2(0.5f, 0.5f));
+
+			image.sprite = sprite;
+			var color = image.color;
+			var maxAlpha = color.a;
+
+			if (fadeTime > 0)
+			{
+				color.a = 0;
+				image.color = color;
+
+				float time = Time.time;
+				while (color.a < maxAlpha)
+				{
+					color.a = Mathf.Lerp(0, maxAlpha, (Time.time - time) / fadeTime);
+
+					if (image != null)
+						image.color = color;
+					yield return null;
+				}
+			}
+		}
+
+		IEnumerator LoadRawImage()
+		{
+			var rawImage = targetObj.GetComponent<RawImage>();
+
+			if (rawImage == null)
+				yield break;
+
+			rawImage.texture = texture;
+			var color = rawImage.color;
+			var maxAlpha = color.a;
+
+			if (fadeTime > 0)
+			{
+				color.a = 0;
+				rawImage.color = color;
+
+				float time = Time.time;
+				while (color.a < maxAlpha)
+				{
+					color.a = Mathf.Lerp(0, maxAlpha, (Time.time - time) / fadeTime);
+
+					if (rawImage != null)
+						rawImage.color = color;
+					yield return null;
+				}
+			}
+		}
 	}
 
 	private static string CreateMD5(string input)
